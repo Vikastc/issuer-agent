@@ -1,6 +1,6 @@
 import express from 'express';
 import { dataSource } from './dbconfig';
-import { addDelegateAsRegistryDelegate } from './init';
+import { addDelegateAsRegistryDelegate, checkDidAndIdentities } from './init';
 import { createSchema, getSchemaById } from './controller/schema_controller';
 import {
   documentHashOnChain,
@@ -9,10 +9,15 @@ import {
   revokeCred,
   updateCred,
 } from './controller/credential_controller';
-import { generateDid } from './controller/did_controller';
+import {
+  didNameNewCheck,
+  encryptMnemonic,
+  generateDid,
+} from './controller/did_controller';
 import app from './server';
+import { studio_identity_init } from './identity/org';
 
-const { PORT } = process.env;
+const { PORT, MNEMONIC } = process.env;
 
 const credentialRouter = express.Router({ mergeParams: true });
 const schemaRouter = express.Router({ mergeParams: true });
@@ -42,9 +47,18 @@ schemaRouter.get('/:id', async (req, res) => {
   return await getSchemaById(req, res);
 });
 
+didRouter.get('/didName/:id', async (req, res) => {
+  return await didNameNewCheck(req, res);
+});
+
 didRouter.post('/create', async (req, res) => {
   return await generateDid(req, res);
-})
+});
+
+didRouter.post('/encrypt', async (req, res) => {
+  return await encryptMnemonic(req, res);
+});
+
 app.use('/api/v1/schema', schemaRouter);
 app.use('/api/v1/cred', credentialRouter);
 app.use('/api/v1/did', didRouter);
@@ -62,7 +76,9 @@ app.get('/*', async (req, res) => {
 async function main() {
   try {
     await dataSource.initialize();
-    await addDelegateAsRegistryDelegate();
+    await studio_identity_init(MNEMONIC as string);
+    // await addDelegateAsRegistryDelegate();
+    await checkDidAndIdentities(MNEMONIC as string);
   } catch (error) {
     console.log('error: ', error);
     throw new Error('Main error');
